@@ -81,8 +81,10 @@ export const BossLevel: React.FC<BossLevelProps> = ({
   // Step 3: Test Stealth Attack
   const handleTestStealth = () => {
     sound.playKeypress();
+    setStep1Done(true);
+    setStep2Done(true);
     setStep3Tested(true);
-    if (!isBossCompleted && step1Done && step2Done) {
+    if (!isBossCompleted) {
       onCompleteBoss();
       sound.playLevelUp();
       confetti({
@@ -143,7 +145,7 @@ export const BossLevel: React.FC<BossLevelProps> = ({
   }).join(' ');
 
   return (
-    <div className="flex-1 flex flex-col p-4 lg:p-6 overflow-y-auto space-y-6 font-mono">
+    <div className="w-full space-y-6 font-mono">
       {/* Boss Header Banner */}
       <div className="bg-gradient-to-r from-slate-950 via-cyan-950/40 to-slate-950 rounded-xl p-5 border border-cyan-500/60 shadow-2xl relative overflow-hidden">
         <div className="absolute top-0 right-0 w-48 h-48 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />

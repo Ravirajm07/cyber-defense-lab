@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Terminal as TerminalIcon, Play, Wand2, Copy, Check, Trash2, ArrowRight } from 'lucide-react';
+import { Terminal as TerminalIcon, Play, Wand2, Copy, Check, Trash2, ArrowRight, CornerDownLeft } from 'lucide-react';
 import { Button } from './ui/button';
 import { sound } from '../lib/audio';
 
@@ -28,12 +28,14 @@ export const Terminal: React.FC<TerminalProps> = ({
   const [isCopied, setIsCopied] = useState(false);
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [commandHistory, setCommandHistory] = useState<string[]>([]);
-  const terminalEndRef = useRef<HTMLDivElement>(null);
+  const terminalOutputRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Scroll to bottom when output changes
+  // Scroll ONLY the terminal internal output container, NEVER the whole page
   useEffect(() => {
-    terminalEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (terminalOutputRef.current) {
+      terminalOutputRef.current.scrollTop = terminalOutputRef.current.scrollHeight;
+    }
   }, [outputHistory, isRunning]);
 
   // Initial welcome message or reset when expectedCommand changes
@@ -41,7 +43,7 @@ export const Terminal: React.FC<TerminalProps> = ({
     setOutputHistory([
       {
         type: 'system',
-        text: `[!] Terminal ready. Execute the command below to progress.\n[i] Command target: ${expectedCommand}`
+        text: `[!] Terminal initialized.\n[i] Required target command:\n    ${expectedCommand}\n[i] Click 'Auto-Type' or 'Auto-Run' below if you want fast execution.`
       }
     ]);
     setInputValue('');
@@ -63,7 +65,7 @@ export const Terminal: React.FC<TerminalProps> = ({
         clearInterval(interval);
         inputRef.current?.focus();
       }
-    }, 25);
+    }, 20);
   };
 
   const handleInstantFill = () => {
@@ -89,21 +91,72 @@ export const Terminal: React.FC<TerminalProps> = ({
       { type: 'input', text: `${promptPrefix} ${rawCmd}` }
     ]);
 
-    // Check if command is valid (or lenient match)
-    const normalizedInput = rawCmd.toLowerCase().replace(/\s+/g, ' ');
-    const normalizedExpected = expectedCommand.toLowerCase().replace(/\s+/g, ' ');
-    const isMatch = normalizedInput === normalizedExpected || 
-                    rawCmd.includes(expectedCommand.split(' ')[0]) || 
-                    normalizedInput.includes('connect') ||
-                    normalizedInput.includes('sudo') ||
-                    normalizedInput.includes('nmap') ||
-                    normalizedInput.includes('shodan') ||
-                    normalizedInput.includes('censys') ||
-                    normalizedInput.includes('spiderfoot') ||
-                    normalizedInput.includes('aquatone') ||
-                    normalizedInput.includes('recon-ng') ||
-                    normalizedInput.includes('maltego') ||
-                    normalizedInput.includes('firecompass');
+    // Check utility commands
+    const lowerCmd = rawCmd.toLowerCase();
+    if (lowerCmd === 'clear') {
+      setOutputHistory([]);
+      setIsRunning(false);
+      setInputValue('');
+      return;
+    }
+
+    if (lowerCmd === 'help') {
+      setTimeout(() => {
+        setOutputHistory(prev => [
+          ...prev,
+          { 
+            type: 'system', 
+            text: `[HELP GUIDE]\nAvailable commands for this task:\n  - Required: ${expectedCommand}\n  - clear: Clear terminal output\n  - whoami: Display simulated user context\n  - Click 'Auto-Run' or 'Auto-Type' button to execute instantly.` 
+          }
+        ]);
+        setIsRunning(false);
+        setInputValue('');
+      }, 300);
+      return;
+    }
+
+    if (lowerCmd === 'whoami' || lowerCmd === 'id') {
+      setTimeout(() => {
+        setOutputHistory(prev => [
+          ...prev,
+          { type: 'output', text: 'uid=1000(student) gid=1000(student) groups=1000(student),27(sudo)' }
+        ]);
+        setIsRunning(false);
+        setInputValue('');
+      }, 300);
+      return;
+    }
+
+    if (lowerCmd === 'ls') {
+      setTimeout(() => {
+        setOutputHistory(prev => [
+          ...prev,
+          { type: 'output', text: 'aquatone_report/  common-dirs.txt  college_demo.db  wordlists/  recon_scan.txt' }
+        ]);
+        setIsRunning(false);
+        setInputValue('');
+      }, 300);
+      return;
+    }
+
+    // Flexible command validation
+    const cleanInput = rawCmd.toLowerCase().replace(/\s+/g, ' ');
+    const cleanExpected = expectedCommand.toLowerCase().replace(/\s+/g, ' ');
+    const firstWord = expectedCommand.trim().split(' ')[0].toLowerCase();
+
+    const isMatch = cleanInput === cleanExpected ||
+                    cleanInput.startsWith(firstWord) ||
+                    cleanInput.includes(firstWord) ||
+                    cleanInput.includes('connect') ||
+                    cleanInput.includes('nmap') ||
+                    cleanInput.includes('shodan') ||
+                    cleanInput.includes('censys') ||
+                    cleanInput.includes('spiderfoot') ||
+                    cleanInput.includes('aquatone') ||
+                    cleanInput.includes('recon-ng') ||
+                    cleanInput.includes('maltego') ||
+                    cleanInput.includes('firecompass') ||
+                    cleanInput.includes('nasa.gov');
 
     // Simulate realistic execution delay
     setTimeout(() => {
@@ -111,7 +164,7 @@ export const Terminal: React.FC<TerminalProps> = ({
         setOutputHistory(prev => [
           ...prev,
           { type: 'output', text: expectedOutput },
-          { type: 'system', text: '[✓] Task execution completed successfully! Telemetry registered.' }
+          { type: 'system', text: '[✓] Task execution verified! Telemetry updated.' }
         ]);
         sound.playSuccess();
         onSuccess();
@@ -120,14 +173,14 @@ export const Terminal: React.FC<TerminalProps> = ({
           ...prev,
           { 
             type: 'system', 
-            text: `bash: ${rawCmd}: command not recognized or syntax mismatch.\n[!] Hint: Expected command is:\n    ${expectedCommand}\n[!] Click 'Auto-Type' or 'Quick Fill' to enter the exact syntax.` 
+            text: `bash: syntax mismatch.\n[!] Target command:\n    ${expectedCommand}\n[!] Click 'Auto-Type' or 'Auto-Run' to proceed immediately.` 
           }
         ]);
         sound.playAlert();
       }
       setIsRunning(false);
       setInputValue('');
-    }, 600);
+    }, 500);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -164,32 +217,32 @@ export const Terminal: React.FC<TerminalProps> = ({
   };
 
   return (
-    <div className="rounded-xl border border-slate-800 bg-slate-950 shadow-2xl overflow-hidden font-mono flex flex-col h-[480px]">
+    <div className="rounded-xl border border-slate-800 bg-slate-950 shadow-xl overflow-hidden font-mono flex flex-col h-[380px] sm:h-[420px]">
       {/* Terminal Title Bar */}
-      <div className="bg-slate-900/90 border-b border-slate-800 px-4 py-2 flex items-center justify-between select-none">
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1.5">
-            <span className="w-3 h-3 rounded-full bg-red-500/80 inline-block" />
-            <span className="w-3 h-3 rounded-full bg-yellow-500/80 inline-block" />
-            <span className="w-3 h-3 rounded-full bg-emerald-500/80 inline-block" />
+      <div className="bg-slate-900/90 border-b border-slate-800 px-3 sm:px-4 py-2 flex items-center justify-between select-none flex-shrink-0">
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            <span className="w-2.5 h-2.5 rounded-full bg-red-500/80 inline-block" />
+            <span className="w-2.5 h-2.5 rounded-full bg-yellow-500/80 inline-block" />
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500/80 inline-block" />
           </div>
-          <span className="text-xs font-semibold text-slate-300 ml-2 flex items-center gap-1.5">
-            <TerminalIcon className="w-3.5 h-3.5 text-orange-400" />
-            {taskTitle || 'BASH TERMINAL EMULATOR'}
+          <span className="text-xs font-semibold text-slate-300 ml-1.5 flex items-center gap-1.5 truncate">
+            <TerminalIcon className="w-3.5 h-3.5 text-orange-400 flex-shrink-0" />
+            <span className="truncate">{taskTitle || 'BASH TERMINAL EMULATOR'}</span>
           </span>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 flex-shrink-0">
           {/* Copy Command */}
           <Button
             variant="ghost"
             size="sm"
             onClick={handleCopyCommand}
             className="h-7 px-2 text-xs text-slate-400 hover:text-slate-100 hover:bg-slate-800 gap-1"
-            title="Copy command to clipboard"
+            title="Copy command"
           >
             {isCopied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-            <span className="hidden sm:inline">{isCopied ? 'Copied' : 'Copy'}</span>
+            <span className="hidden md:inline">{isCopied ? 'Copied' : 'Copy'}</span>
           </Button>
 
           {/* Clear Terminal */}
@@ -206,48 +259,51 @@ export const Terminal: React.FC<TerminalProps> = ({
       </div>
 
       {/* Target Command Helper Bar */}
-      <div className="bg-slate-900/40 border-b border-slate-800/80 px-4 py-2 flex flex-wrap items-center justify-between gap-2 text-xs">
-        <div className="flex items-center gap-2 min-w-0">
-          <span className="text-slate-400 font-semibold uppercase text-[10px] tracking-wider">Required Command:</span>
-          <code className="text-orange-300 bg-slate-900 px-2 py-0.5 rounded border border-slate-700/60 truncate max-w-md">
+      <div className="bg-slate-900/40 border-b border-slate-800/80 px-3 sm:px-4 py-2 flex flex-wrap items-center justify-between gap-2 text-xs flex-shrink-0">
+        <div className="flex items-center gap-1.5 min-w-0 flex-1">
+          <span className="text-slate-400 font-semibold uppercase text-[10px] tracking-wider flex-shrink-0">Cmd:</span>
+          <code className="text-orange-300 bg-slate-900 px-2 py-0.5 rounded border border-slate-700/60 truncate text-xs select-all">
             {expectedCommand}
           </code>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 flex-shrink-0">
           <Button
             variant="outline"
             size="sm"
             onClick={handleAutoType}
             disabled={isRunning}
-            className="h-7 text-xs bg-slate-800/80 hover:bg-slate-700 border-slate-700 text-orange-300 gap-1.5"
+            className="h-7 text-xs bg-slate-800/80 hover:bg-slate-700 border-slate-700 text-orange-300 gap-1 px-2.5"
           >
-            <Wand2 className="w-3 h-3 text-orange-400 animate-spin" style={{ animationDuration: '4s' }} />
-            Auto-Type Command
+            <Wand2 className="w-3 h-3 text-orange-400" />
+            <span>Auto-Type</span>
           </Button>
           <Button
             variant="default"
             size="sm"
             onClick={() => executeCommand(expectedCommand)}
             disabled={isRunning}
-            className="h-7 text-xs bg-orange-600 hover:bg-orange-500 text-white gap-1"
+            className="h-7 text-xs bg-orange-600 hover:bg-orange-500 text-white gap-1 px-2.5"
           >
             <Play className="w-3 h-3 fill-white" />
-            Auto-Run
+            <span>Auto-Run</span>
           </Button>
         </div>
       </div>
 
-      {/* Terminal Output Area */}
-      <div className="flex-1 p-4 overflow-y-auto text-xs sm:text-sm space-y-2 select-text bg-slate-950">
+      {/* Terminal Internal Output Area - Scrolls internally WITHOUT affecting window scroll */}
+      <div 
+        ref={terminalOutputRef}
+        className="flex-1 p-3 sm:p-4 overflow-y-auto custom-scrollbar text-xs sm:text-sm space-y-2 select-text bg-slate-950 font-mono"
+      >
         {outputHistory.map((entry, idx) => (
           <div key={idx} className="leading-relaxed">
             {entry.type === 'input' && (
-              <div className="text-cyan-400 font-semibold flex items-start gap-1">
-                <span>{entry.text}</span>
+              <div className="text-cyan-400 font-semibold">
+                {entry.text}
               </div>
             )}
             {entry.type === 'output' && (
-              <pre className="text-emerald-400 whitespace-pre-wrap font-mono leading-relaxed bg-slate-950/80 p-2.5 rounded border border-emerald-950">
+              <pre className="text-emerald-400 whitespace-pre-wrap font-mono leading-relaxed bg-slate-900/50 p-2.5 rounded border border-emerald-950/60 text-xs sm:text-sm">
                 {entry.text}
               </pre>
             )}
@@ -262,17 +318,18 @@ export const Terminal: React.FC<TerminalProps> = ({
         {isRunning && (
           <div className="flex items-center gap-2 text-orange-400 animate-pulse text-xs py-1">
             <span className="w-2 h-2 rounded-full bg-orange-400 animate-ping" />
-            Executing reconnaissance probe against target network...
+            Executing reconnaissance probe...
           </div>
         )}
-
-        <div ref={terminalEndRef} />
       </div>
 
       {/* Terminal Input Bar */}
-      <div className="p-3 bg-slate-900/90 border-t border-slate-800 flex items-center gap-2">
-        <span className="text-cyan-400 font-bold text-xs sm:text-sm flex-shrink-0 select-none">
+      <div className="p-2 sm:p-3 bg-slate-900/90 border-t border-slate-800 flex items-center gap-2 flex-shrink-0">
+        <span className="text-cyan-400 font-bold text-xs sm:text-sm flex-shrink-0 select-none hidden sm:inline">
           {promptPrefix}
+        </span>
+        <span className="text-cyan-400 font-bold text-xs flex-shrink-0 select-none sm:hidden">
+          $&gt;
         </span>
         <div className="relative flex-1">
           <input
@@ -281,10 +338,9 @@ export const Terminal: React.FC<TerminalProps> = ({
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={`Type or click 'Auto-Type' -> ${expectedCommand.slice(0, 30)}...`}
+            placeholder={`Type command or click 'Auto-Type' / 'Auto-Run'...`}
             disabled={isRunning}
             className="w-full bg-transparent text-emerald-300 font-mono text-xs sm:text-sm focus:outline-none placeholder:text-slate-600 py-1"
-            autoFocus
           />
         </div>
 
@@ -293,8 +349,8 @@ export const Terminal: React.FC<TerminalProps> = ({
           variant="ghost"
           size="sm"
           onClick={handleInstantFill}
-          className="h-8 px-2.5 text-xs text-slate-300 hover:text-white hover:bg-slate-800 border border-slate-700/60"
-          title="Instant paste into input"
+          className="h-7 sm:h-8 px-2 text-xs text-slate-300 hover:text-white hover:bg-slate-800 border border-slate-700/60 hidden sm:inline-flex"
+          title="Paste command"
         >
           Quick Fill
         </Button>
@@ -304,13 +360,12 @@ export const Terminal: React.FC<TerminalProps> = ({
           size="sm"
           onClick={() => executeCommand()}
           disabled={isRunning || !inputValue.trim()}
-          className="h-8 bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-3 gap-1 font-semibold"
+          className="h-7 sm:h-8 bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-2.5 sm:px-3 gap-1 font-semibold"
         >
           <span>Run</span>
-          <ArrowRight className="w-3.5 h-3.5" />
+          <CornerDownLeft className="w-3.5 h-3.5" />
         </Button>
       </div>
     </div>
   );
 };
-

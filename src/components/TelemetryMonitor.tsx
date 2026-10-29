@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Activity, AlertTriangle, ShieldCheck, ChevronUp, ChevronDown, RefreshCw, Info } from 'lucide-react';
+import { Activity, AlertTriangle, ShieldCheck, ChevronUp, ChevronDown, Info } from 'lucide-react';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { TelemetryPoint } from '../types';
@@ -15,6 +15,7 @@ export const TelemetryMonitor: React.FC<TelemetryMonitorProps> = ({
   isTriggeringSpike,
   activeLevelId
 }) => {
+  // Start expanded by default, easily minimizable
   const [isExpanded, setIsExpanded] = useState(true);
   const [history, setHistory] = useState<TelemetryPoint[]>([]);
   const [currentMetrics, setCurrentMetrics] = useState({
@@ -103,7 +104,7 @@ export const TelemetryMonitor: React.FC<TelemetryMonitorProps> = ({
 
   // Chart coordinate mapping
   const width = 600;
-  const height = 110;
+  const height = 95;
   const padding = { top: 10, bottom: 20, left: 35, right: 15 };
 
   const maxReq = 350;
@@ -124,111 +125,121 @@ export const TelemetryMonitor: React.FC<TelemetryMonitorProps> = ({
   }).join(' ');
 
   return (
-    <div className={`transition-all duration-300 border-t ${
+    <div className={`transition-all duration-200 border-t ${
       hasAnyAnomaly 
-        ? 'border-red-500/80 bg-red-950/20 shadow-[0_-4px_25px_rgba(239,68,68,0.2)]' 
+        ? 'border-red-500/80 bg-red-950/25 shadow-[0_-4px_20px_rgba(239,68,68,0.2)]' 
         : 'border-slate-800 bg-slate-950/95'
     }`}>
-      {/* Telemetry Header Bar */}
-      <div className="px-4 py-2 flex items-center justify-between border-b border-slate-800/80 bg-slate-900/60">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1.5">
-            <span className={`w-2.5 h-2.5 rounded-full ${
+      {/* Telemetry Header Bar (Always visible) */}
+      <div className="px-3 sm:px-4 py-2 flex items-center justify-between border-b border-slate-800/80 bg-slate-900/80">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            <span className={`w-2 h-2 rounded-full ${
               hasAnyAnomaly ? 'bg-red-500 animate-ping' : 'bg-cyan-400 animate-pulse'
             }`} />
-            <Activity className={`w-4 h-4 ${hasAnyAnomaly ? 'text-red-400' : 'text-cyan-400'}`} />
+            <Activity className={`w-3.5 h-3.5 ${hasAnyAnomaly ? 'text-red-400' : 'text-cyan-400'}`} />
           </div>
 
-          <div className="flex items-center gap-2">
-            <span className="font-mono text-xs font-bold uppercase tracking-wider text-slate-200">
-              Blue Team Live Telemetry Monitor
+          <div className="flex items-center gap-2 truncate">
+            <span className="font-mono text-xs font-bold uppercase tracking-wider text-slate-200 truncate">
+              Blue Team Telemetry Monitor
             </span>
-            <Badge variant="outline" className="text-[10px] font-mono border-slate-700 text-slate-400">
-              Target: 45.33.32.156:80
+            <Badge variant="outline" className="text-[10px] font-mono border-slate-700 text-slate-400 hidden sm:inline-flex">
+              Target: 45.33.32.156
             </Badge>
           </div>
 
           {hasAnyAnomaly ? (
-            <Badge className="bg-red-600/90 text-white font-mono text-[10px] uppercase animate-bounce flex items-center gap-1">
+            <Badge className="bg-red-600/90 text-white font-mono text-[10px] uppercase animate-bounce flex items-center gap-1 flex-shrink-0">
               <AlertTriangle className="w-3 h-3" />
-              {isNmapSpike ? 'CRITICAL: Port Sweep Signature Spiking!' : 'ALERT: Directory Brute-Force 404 Burst!'}
+              {isNmapSpike ? 'CRITICAL: Port Sweep Spike!' : 'ALERT: 404 Flood Burst!'}
             </Badge>
           ) : (
-            <Badge className="bg-emerald-950/80 text-emerald-400 border border-emerald-800 text-[10px] font-mono flex items-center gap-1">
+            <Badge className="bg-emerald-950/80 text-emerald-400 border border-emerald-800 text-[10px] font-mono hidden md:inline-flex items-center gap-1">
               <ShieldCheck className="w-3 h-3 text-emerald-400" />
-              Baseline Traffic (~30 req/min, 0 alerts)
+              Baseline Traffic (~30 req/min)
             </Badge>
           )}
         </div>
 
-        <div className="flex items-center gap-2">
-          <span className="text-[11px] font-mono text-slate-400 hidden md:inline">
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <span className="text-[11px] font-mono text-slate-400 hidden xl:inline">
             Active: <span className="text-orange-400 font-semibold">{currentToolName}</span>
           </span>
           <Button
             variant="ghost"
             size="sm"
             onClick={() => setIsExpanded(!isExpanded)}
-            className="h-7 w-7 p-0 text-slate-400 hover:text-slate-100"
+            className="h-7 px-2 text-xs text-slate-300 hover:text-white hover:bg-slate-800 gap-1 border border-slate-800"
           >
-            {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+            {isExpanded ? (
+              <>
+                <ChevronDown className="w-3.5 h-3.5" />
+                <span className="text-[11px]">Minimize</span>
+              </>
+            ) : (
+              <>
+                <ChevronUp className="w-3.5 h-3.5" />
+                <span className="text-[11px]">Expand Live Monitor</span>
+              </>
+            )}
           </Button>
         </div>
       </div>
 
       {/* Expanded Telemetry Body */}
       {isExpanded && (
-        <div className="p-4 grid grid-cols-1 lg:grid-cols-12 gap-4 items-center">
+        <div className="p-3 sm:p-4 grid grid-cols-1 lg:grid-cols-12 gap-3 items-center">
           {/* Metric Cards (Left Column) */}
           <div className="lg:col-span-4 grid grid-cols-3 gap-2">
             {/* Metric 1: requests_per_min */}
-            <div className={`p-2.5 rounded-lg border transition-all ${
+            <div className={`p-2 rounded-lg border transition-all ${
               currentMetrics.requests_per_min > 150 
                 ? 'bg-red-950/40 border-red-500/80 ring-1 ring-red-500/50' 
                 : 'bg-slate-900/80 border-slate-800'
             }`}>
-              <div className="flex items-center justify-between text-[10px] font-mono text-slate-400">
+              <div className="flex items-center justify-between text-[9px] font-mono text-slate-400">
                 <span>REQ / MIN</span>
-                <span className="text-cyan-400 font-bold">Base: ~30</span>
+                <span className="text-cyan-400 font-bold">~30</span>
               </div>
-              <div className="mt-1 flex items-baseline gap-1.5">
-                <span className={`text-xl font-bold font-mono ${
+              <div className="mt-0.5 flex items-baseline gap-1">
+                <span className={`text-lg font-bold font-mono ${
                   currentMetrics.requests_per_min > 150 ? 'text-red-400 animate-pulse' : 'text-slate-100'
                 }`}>
                   {Math.round(currentMetrics.requests_per_min)}
                 </span>
-                <span className="text-[10px] font-mono text-slate-400">req/m</span>
+                <span className="text-[9px] font-mono text-slate-400">req/m</span>
               </div>
-              <div className="mt-1 flex items-center gap-1 text-[9px] font-mono">
+              <div className="mt-0.5 text-[8px] font-mono">
                 {currentMetrics.requests_per_min > 150 ? (
-                  <span className="text-red-400 font-bold">▲ SPIKE (+{(currentMetrics.requests_per_min - 30).toFixed(0)})</span>
+                  <span className="text-red-400 font-bold">▲ SPIKE</span>
                 ) : (
-                  <span className="text-emerald-400">✓ In Baseline</span>
+                  <span className="text-emerald-400">✓ Baseline</span>
                 )}
               </div>
             </div>
 
             {/* Metric 2: unique_ports */}
-            <div className={`p-2.5 rounded-lg border transition-all ${
+            <div className={`p-2 rounded-lg border transition-all ${
               currentMetrics.unique_ports > 10 
                 ? 'bg-orange-950/40 border-orange-500/80 ring-1 ring-orange-500/50' 
                 : 'bg-slate-900/80 border-slate-800'
             }`}>
-              <div className="flex items-center justify-between text-[10px] font-mono text-slate-400">
-                <span>PORTS HIT</span>
-                <span className="text-orange-400 font-bold">Base: 1-2</span>
+              <div className="flex items-center justify-between text-[9px] font-mono text-slate-400">
+                <span>PORTS</span>
+                <span className="text-orange-400 font-bold">1-2</span>
               </div>
-              <div className="mt-1 flex items-baseline gap-1.5">
-                <span className={`text-xl font-bold font-mono ${
+              <div className="mt-0.5 flex items-baseline gap-1">
+                <span className={`text-lg font-bold font-mono ${
                   currentMetrics.unique_ports > 10 ? 'text-orange-400 animate-pulse' : 'text-slate-100'
                 }`}>
                   {currentMetrics.unique_ports}
                 </span>
-                <span className="text-[10px] font-mono text-slate-400">ports</span>
+                <span className="text-[9px] font-mono text-slate-400">ports</span>
               </div>
-              <div className="mt-1 flex items-center gap-1 text-[9px] font-mono">
+              <div className="mt-0.5 text-[8px] font-mono">
                 {currentMetrics.unique_ports > 10 ? (
-                  <span className="text-orange-400 font-bold">▲ NMAP SWEEP</span>
+                  <span className="text-orange-400 font-bold">▲ NMAP</span>
                 ) : (
                   <span className="text-emerald-400">✓ Clean</span>
                 )}
@@ -236,25 +247,25 @@ export const TelemetryMonitor: React.FC<TelemetryMonitorProps> = ({
             </div>
 
             {/* Metric 3: error_404_rate */}
-            <div className={`p-2.5 rounded-lg border transition-all ${
+            <div className={`p-2 rounded-lg border transition-all ${
               currentMetrics.error_404_rate > 0.40 
                 ? 'bg-red-950/40 border-red-500/80 ring-1 ring-red-500/50' 
                 : 'bg-slate-900/80 border-slate-800'
             }`}>
-              <div className="flex items-center justify-between text-[10px] font-mono text-slate-400">
-                <span>404 ERROR</span>
-                <span className="text-pink-400 font-bold">Base: &lt;5%</span>
+              <div className="flex items-center justify-between text-[9px] font-mono text-slate-400">
+                <span>404 ERR</span>
+                <span className="text-pink-400 font-bold">&lt;5%</span>
               </div>
-              <div className="mt-1 flex items-baseline gap-1.5">
-                <span className={`text-xl font-bold font-mono ${
+              <div className="mt-0.5 flex items-baseline gap-1">
+                <span className={`text-lg font-bold font-mono ${
                   currentMetrics.error_404_rate > 0.40 ? 'text-pink-400 animate-pulse' : 'text-slate-100'
                 }`}>
                   {(currentMetrics.error_404_rate * 100).toFixed(0)}%
                 </span>
               </div>
-              <div className="mt-1 flex items-center gap-1 text-[9px] font-mono">
+              <div className="mt-0.5 text-[8px] font-mono">
                 {currentMetrics.error_404_rate > 0.40 ? (
-                  <span className="text-pink-400 font-bold">▲ BRUTE-FORCE</span>
+                  <span className="text-pink-400 font-bold">▲ BRUTE</span>
                 ) : (
                   <span className="text-emerald-400">✓ Normal</span>
                 )}
@@ -263,27 +274,27 @@ export const TelemetryMonitor: React.FC<TelemetryMonitorProps> = ({
           </div>
 
           {/* Real-time Time Series Chart (Center/Right Column) */}
-          <div className="lg:col-span-8 bg-slate-900/90 rounded-lg p-2.5 border border-slate-800 relative">
-            <div className="flex items-center justify-between mb-1 px-1 text-[10px] font-mono">
+          <div className="lg:col-span-8 bg-slate-900/90 rounded-lg p-2 border border-slate-800 relative">
+            <div className="flex items-center justify-between mb-0.5 px-1 text-[9px] font-mono">
               <div className="flex items-center gap-3">
                 <span className="flex items-center gap-1 text-cyan-400">
-                  <span className="w-2.5 h-0.5 bg-cyan-400 inline-block" />
-                  requests_per_min (0 - 350)
+                  <span className="w-2 h-0.5 bg-cyan-400 inline-block" />
+                  requests_per_min
                 </span>
                 <span className="flex items-center gap-1 text-orange-400">
-                  <span className="w-2.5 h-0.5 bg-orange-400 inline-block" />
-                  unique_ports (0 - 160)
+                  <span className="w-2 h-0.5 bg-orange-400 inline-block" />
+                  unique_ports
                 </span>
               </div>
-              <span className="text-slate-500">Live 60-second window</span>
+              <span className="text-slate-500">Live 60s stream</span>
             </div>
 
             {/* SVG Live Chart */}
             <div className="w-full overflow-hidden">
-              <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-24 select-none">
+              <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-16 sm:h-20 select-none">
                 {/* Horizontal Grid lines */}
-                <line x1={padding.left} y1={padding.top} x2={width - padding.right} y2={padding.top} stroke="#334155" strokeDasharray="3 3" opacity={0.4} />
-                <line x1={padding.left} y1={height / 2} x2={width - padding.right} y2={height / 2} stroke="#334155" strokeDasharray="3 3" opacity={0.4} />
+                <line x1={padding.left} y1={padding.top} x2={width - padding.right} y2={padding.top} stroke="#334155" strokeDasharray="3 3" opacity={0.3} />
+                <line x1={padding.left} y1={height / 2} x2={width - padding.right} y2={height / 2} stroke="#334155" strokeDasharray="3 3" opacity={0.3} />
                 <line x1={padding.left} y1={height - padding.bottom} x2={width - padding.right} y2={height - padding.bottom} stroke="#475569" opacity={0.8} />
 
                 {/* Y-Axis Labels */}
@@ -326,7 +337,7 @@ export const TelemetryMonitor: React.FC<TelemetryMonitorProps> = ({
                   <circle
                     cx={width - padding.right}
                     cy={height - padding.bottom - (currentMetrics.requests_per_min / maxReq) * (height - padding.top - padding.bottom)}
-                    r={4.5}
+                    r={4}
                     fill="#EF4444"
                     className="animate-ping"
                   />
@@ -335,17 +346,17 @@ export const TelemetryMonitor: React.FC<TelemetryMonitorProps> = ({
             </div>
 
             {/* Footprint Insight Bar */}
-            <div className="mt-1 pt-1 border-t border-slate-800 flex items-center justify-between text-[10px] font-mono text-slate-400">
-              <span className="flex items-center gap-1.5">
-                <Info className="w-3 h-3 text-cyan-400" />
+            <div className="pt-0.5 border-t border-slate-800 flex items-center justify-between text-[9px] font-mono text-slate-400">
+              <span className="flex items-center gap-1 truncate">
+                <Info className="w-3 h-3 text-cyan-400 flex-shrink-0" />
                 {activeLevelId === 3 || activeLevelId === 5 || activeLevelId === 6 ? (
-                  <span className="text-emerald-400">Passive Recon Tool Active: 0 direct packets transmitted to target. Log remains at resting baseline.</span>
+                  <span className="text-emerald-400 truncate">Passive Tool: 0 target packets. Telemetry resting at normal baseline.</span>
                 ) : activeLevelId === 7 ? (
-                  <span className="text-red-400 font-bold animate-pulse">Active Nmap Scan: SYN flood across 1000 ports triggers instant multi-port anomaly!</span>
+                  <span className="text-red-400 font-bold truncate">Nmap Active Scan: SYN flood across 1000 ports triggers port sweep anomaly!</span>
                 ) : activeLevelId === 10 ? (
-                  <span className="text-pink-400 font-bold animate-pulse">Active Directory Fuzzing: 404 response burst triggers web crawler anomaly!</span>
+                  <span className="text-pink-400 font-bold truncate">Directory Fuzzing: 404 response burst triggers web crawler anomaly!</span>
                 ) : (
-                  <span>Continuous sensor sampling enabled. Run active tools to simulate detection telemetry.</span>
+                  <span className="truncate">Sensors active. Run Level 7 or Level 10 to simulate attack telemetry spikes.</span>
                 )}
               </span>
             </div>
@@ -355,4 +366,3 @@ export const TelemetryMonitor: React.FC<TelemetryMonitorProps> = ({
     </div>
   );
 };
-

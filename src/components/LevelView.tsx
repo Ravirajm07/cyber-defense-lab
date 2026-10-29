@@ -115,7 +115,7 @@ export const LevelView: React.FC<LevelViewProps> = ({
   };
 
   return (
-    <div className="flex-1 flex flex-col p-4 lg:p-6 overflow-y-auto space-y-4">
+    <div className="w-full space-y-4">
       {/* Level Header Banner */}
       <div className="bg-slate-900/90 rounded-xl p-4 border border-slate-800 shadow-lg relative overflow-hidden">
         {/* Cyber corner accent */}

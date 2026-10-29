@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Header } from './components/Header';
 import { Sidebar } from './components/Sidebar';
 import { LevelView } from './components/LevelView';
@@ -7,10 +7,14 @@ import { TelemetryMonitor } from './components/TelemetryMonitor';
 import { ColabModal } from './components/ColabModal';
 import { LAB_LEVELS } from './data/labData';
 import { sound } from './lib/audio';
+import { CheckCircle2, Lock, Brain, Shield } from 'lucide-react';
 
 const STORAGE_KEY = 'CYBER_DEFENSE_LAB_STATE_V1';
 
 export function App() {
+  // Scroll container ref to ensure smooth scrolling on level change
+  const contentScrollRef = useRef<HTMLDivElement>(null);
+
   // Load state from localStorage
   const [completedLevels, setCompletedLevels] = useState<number[]>(() => {
     try {
@@ -78,6 +82,13 @@ export function App() {
   useEffect(() => {
     sound.setEnabled(soundEnabled);
   }, [soundEnabled]);
+
+  // Smoothly scroll content container to top when level changes
+  useEffect(() => {
+    if (contentScrollRef.current) {
+      contentScrollRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, [activeLevelId]);
 
   // Find active level data (for levels 1-10)
   const activeLevel = LAB_LEVELS.find((l) => l.id === activeLevelId) || LAB_LEVELS[0];
@@ -152,56 +163,138 @@ export function App() {
     }, 20000);
   };
 
+  const isLevelUnlocked = (levelId: number) => {
+    if (instructorMode) return true;
+    if (levelId === 1) return true;
+    return completedLevels.includes(levelId - 1);
+  };
+
+  const isBossUnlocked = instructorMode || completedLevels.includes(10);
+
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col antialiased selection:bg-orange-500 selection:text-white">
-      {/* Top Navigation Bar */}
-      <Header
-        totalXp={totalXp}
-        instructorMode={instructorMode}
-        onToggleInstructorMode={setInstructorMode}
-        soundEnabled={soundEnabled}
-        onToggleSound={setSoundEnabled}
-        onResetProgress={handleResetProgress}
-        onOpenColabModal={() => setIsColabModalOpen(true)}
-        activeLevelName={activeLevelId === 11 ? 'Boss: Time-Series Ensemble Lab' : activeLevel.name}
-      />
-
-      {/* Main Workspace: Left Sidebar + Central Level Workspace */}
-      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden min-h-0">
-        {/* Left Sidebar Level Map */}
-        <Sidebar
-          activeLevelId={activeLevelId}
-          completedLevels={completedLevels}
+    <div className="h-screen w-screen bg-slate-950 text-slate-100 flex flex-col antialiased selection:bg-orange-500 selection:text-white overflow-hidden font-sans">
+      {/* Top Navigation Bar (Fixed Height) */}
+      <div className="flex-shrink-0 z-40">
+        <Header
+          totalXp={totalXp}
           instructorMode={instructorMode}
-          onSelectLevel={setActiveLevelId}
+          onToggleInstructorMode={setInstructorMode}
+          soundEnabled={soundEnabled}
+          onToggleSound={setSoundEnabled}
+          onResetProgress={handleResetProgress}
+          onOpenColabModal={() => setIsColabModalOpen(true)}
+          activeLevelName={activeLevelId === 11 ? 'Boss: Time-Series Ensemble Lab' : activeLevel.name}
         />
+      </div>
 
-        {/* Central Content Area */}
-        <main className="flex-1 flex flex-col overflow-hidden bg-slate-950">
-          {activeLevelId === 11 ? (
-            <BossLevel
-              onCompleteBoss={handleCompleteBoss}
-              isBossCompleted={completedLevels.includes(11)}
-              onOpenColabModal={() => setIsColabModalOpen(true)}
-            />
-          ) : (
-            <LevelView
-              key={activeLevel.id}
-              level={activeLevel}
-              completedTasks={completedTasks}
-              onCompleteTask={handleCompleteTask}
-              onNextLevel={handleNextLevel}
-              isLastLevel={activeLevelId === 10}
-              onTriggerTelemetrySpike={handleTriggerTelemetrySpike}
-            />
-          )}
+      {/* Mobile Swipeable Level Selector Bar (< lg) */}
+      <div className="lg:hidden flex-shrink-0 bg-slate-900 border-b border-slate-800 px-2 py-1.5 overflow-x-auto flex items-center gap-1.5 custom-scrollbar z-30">
+        <span className="text-[10px] font-mono text-slate-400 font-bold uppercase px-1 flex-shrink-0">
+          Levels:
+        </span>
+        {LAB_LEVELS.map((lvl) => {
+          const unlocked = isLevelUnlocked(lvl.id);
+          const completed = completedLevels.includes(lvl.id);
+          const active = activeLevelId === lvl.id;
 
-          {/* Persistent Blue Team Live Telemetry Monitor */}
-          <TelemetryMonitor
-            currentToolName={activeLevelId === 11 ? 'Isolation Forest ML Sensor' : activeLevel.name}
-            isTriggeringSpike={activeSpike}
+          return (
+            <button
+              key={lvl.id}
+              disabled={!unlocked}
+              onClick={() => {
+                setActiveLevelId(lvl.id);
+                sound.playKeypress();
+              }}
+              className={`flex-shrink-0 px-2.5 py-1 rounded text-xs font-mono font-semibold flex items-center gap-1 transition-all ${
+                active
+                  ? 'bg-orange-600 text-white shadow'
+                  : completed
+                  ? 'bg-emerald-950/80 text-emerald-400 border border-emerald-800'
+                  : unlocked
+                  ? 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                  : 'bg-slate-900 text-slate-600 opacity-50 cursor-not-allowed'
+              }`}
+            >
+              {completed ? (
+                <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+              ) : !unlocked ? (
+                <Lock className="w-3 h-3" />
+              ) : null}
+              <span>L{lvl.id}</span>
+            </button>
+          );
+        })}
+
+        {/* Mobile Boss Button */}
+        <button
+          disabled={!isBossUnlocked}
+          onClick={() => {
+            setActiveLevelId(11);
+            sound.playKeypress();
+          }}
+          className={`flex-shrink-0 px-2.5 py-1 rounded text-xs font-mono font-bold flex items-center gap-1 transition-all ${
+            activeLevelId === 11
+              ? 'bg-cyan-600 text-black shadow'
+              : completedLevels.includes(11)
+              ? 'bg-emerald-950 text-emerald-400 border border-emerald-700'
+              : isBossUnlocked
+              ? 'bg-cyan-950 text-cyan-300 border border-cyan-700'
+              : 'bg-slate-900 text-slate-600 opacity-50 cursor-not-allowed'
+          }`}
+        >
+          <Brain className="w-3 h-3" />
+          <span>Boss</span>
+        </button>
+      </div>
+
+      {/* Main Workspace (Takes full remaining viewport height) */}
+      <div className="flex-1 flex overflow-hidden min-h-0 relative">
+        {/* Desktop Sidebar (Left Column) */}
+        <div className="hidden lg:flex w-72 xl:w-80 h-full flex-shrink-0 flex-col border-r border-slate-800 bg-slate-950/95 overflow-hidden z-20">
+          <Sidebar
             activeLevelId={activeLevelId}
+            completedLevels={completedLevels}
+            instructorMode={instructorMode}
+            onSelectLevel={setActiveLevelId}
           />
+        </div>
+
+        {/* Central Workspace: Content Area + Bottom Telemetry Monitor */}
+        <main className="flex-1 flex flex-col h-full min-h-0 min-w-0 bg-slate-950 overflow-hidden relative">
+          {/* Scrollable Level Content Container - ALWAYS SCROLLS FLUIDLY */}
+          <div 
+            ref={contentScrollRef}
+            className="flex-1 min-h-0 overflow-y-auto custom-scrollbar p-3 sm:p-5 lg:p-6"
+          >
+            <div className="max-w-6xl mx-auto w-full pb-8">
+              {activeLevelId === 11 ? (
+                <BossLevel
+                  onCompleteBoss={handleCompleteBoss}
+                  isBossCompleted={completedLevels.includes(11)}
+                  onOpenColabModal={() => setIsColabModalOpen(true)}
+                />
+              ) : (
+                <LevelView
+                  key={activeLevel.id}
+                  level={activeLevel}
+                  completedTasks={completedTasks}
+                  onCompleteTask={handleCompleteTask}
+                  onNextLevel={handleNextLevel}
+                  isLastLevel={activeLevelId === 10}
+                  onTriggerTelemetrySpike={handleTriggerTelemetrySpike}
+                />
+              )}
+            </div>
+          </div>
+
+          {/* Persistent Blue Team Live Telemetry Monitor (Docked at Bottom) */}
+          <div className="flex-shrink-0 border-t border-slate-800/80 bg-slate-950/95 z-20">
+            <TelemetryMonitor
+              currentToolName={activeLevelId === 11 ? 'Isolation Forest ML Sensor' : activeLevel.name}
+              isTriggeringSpike={activeSpike}
+              activeLevelId={activeLevelId}
+            />
+          </div>
         </main>
       </div>
 
